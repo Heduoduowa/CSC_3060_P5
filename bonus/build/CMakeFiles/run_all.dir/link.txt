@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/run_all.dir/home/s124090182/CSC3060_Project5_Code_Optimization/src/main/run_all.cpp.o -o run_all   -L/usr/local/cuda/targets/x86_64-linux/lib/stubs  -L/usr/local/cuda/targets/x86_64-linux/lib  libkernels.a -lcudadevrt -lcudart_static -lrt -lpthread -ldl 

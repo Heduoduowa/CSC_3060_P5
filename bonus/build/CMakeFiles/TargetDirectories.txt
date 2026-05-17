@@ -1,0 +1,5 @@
+/home/s124090182/CSC3060_Project5_Code_Optimization/bonus/build/CMakeFiles/kernels.dir
+/home/s124090182/CSC3060_Project5_Code_Optimization/bonus/build/CMakeFiles/single_bench.dir
+/home/s124090182/CSC3060_Project5_Code_Optimization/bonus/build/CMakeFiles/run_all.dir
+/home/s124090182/CSC3060_Project5_Code_Optimization/bonus/build/CMakeFiles/edit_cache.dir
+/home/s124090182/CSC3060_Project5_Code_Optimization/bonus/build/CMakeFiles/rebuild_cache.dir
