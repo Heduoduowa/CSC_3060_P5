@@ -62,22 +62,54 @@ Most benchmarks follow the same pattern:
 
 In other words, students normally edit `src/kernel/<name>.cpp`, and sometimes add fields to the matching `include/<name>.h` argument struct if they need extra precomputed data.
 
-## Baseline Values And Default Input Sizes
+## Baseline Values, Lower Bounds, And Default Input Sizes
 
-The baseline times are defined in the benchmark headers and are used by the benchmark harness when it computes per-benchmark speedup. The table below is sorted by header file name in ascending order. For kernels not yet registered in `run_all.cpp`, the default input size column says so explicitly.
+The benchmark headers now carry two kinds of reference data:
 
-| Header file | Baseline constant | Baseline time (ns) | Default input size in `run_all.cpp` |
-| --- | --- | --- | --- |
-| `bitwise.h` | `BASELINE_BITWISE` | `250,000` | vector length `1,024,000` |
-| `blackscholes.h` | `BASELINE_BLACKSCHOLES` | `4,800,000` | `81,l920` options |
-| `filter_gradient.h` | `BASELINE_FILTER_GRADIENT` | `25,000,000` | height x width `1024 x 1024` |
-| `graph.h` | `BASELINE_GRAPH` | `5,000,000` | `1,024,000` nodes, average degree `8` |
-| `grff.h` | `BASELINE_GRFF` | `8,500,000` | feature size `1,024,000` |
-| `image_proc.h` | `BASELINE_IMAGE_PROC` | `43,000,000` | image size `1024 x 1000` |
-| `matmul.h` | `BASELINE_MATMUL` | `88,000,000` | matrix size `512 x 512` |
-| `relu.h` | `BASELINE_RELU` | `550,000` | vector length `1,024,000` |
-| `sparse_spmm.h` | `BASELINE_SPARSE_SPMM` | `116,000,000` | LHS (left hand side) CSR matrix of `2048 x 2048`, the default dense RHS (right hand side) is also `2048 x 2048` |
-| `trace_replay.h` | `BASELINE_TRACE_REPLAY` | `3,400,000` | `65,536` records and trace length `1,048,576` |
+- `BASELINE_*`: a reference runtime used when we report speedup over the baseline.
+- `NAIVE_SPEEDUP_LOWER_BOUND_*`: a reference lower bound for the ratio `naive / stu_*`.
+
+For the overall summary printed by `run_all.cpp`, we now use these fixed
+`BASELINE_*` values from the header files to compute the geometric mean.
+
+In the formulas below:
+
+- $t_{\mathrm{naive}}$ means the runtime of the naive implementation.
+- $t_{\mathrm{stu}}$ means the runtime of the corresponding `stu_*` implementation.
+- $LB$ means the lower-bound value for the current kernel.
+
+Because the server workload can be unstable, the main per-kernel speedup that students should pay attention to is now the speedup over the naive version:
+
+```math
+\text{speedup over naive} = \frac{t_{\mathrm{naive}}}{t_{\mathrm{stu}}}
+```
+
+The lower-bound values are stored in the corresponding header files, and they mean that ideally:
+
+```math
+\frac{t_{\mathrm{naive}}}{t_{\mathrm{stu}}} > LB
+```
+
+Important note:
+
+- These lower bounds are references for performance evaluation and tuning.
+- They do not mean “below this value = automatic zero”.
+- We will run benchmarks multiple times and look at the best, most stable result instead of judging from one noisy run on a busy server.
+
+The table below is sorted by header file name in ascending order. The actual constant names in the headers are still `NAIVE_SPEEDUP_LOWER_BOUND_*`; the table only lists their numeric values.
+
+| Header file | Baseline constant | Baseline time (ns) | Lower bound value | Default input size in `run_all.cpp` |
+| --- | --- | --- | --- | --- |
+| `bitwise.h` | `BASELINE_BITWISE` | `250,000` | `8.00` | vector length `1,024,000` |
+| `blackscholes.h` | `BASELINE_BLACKSCHOLES` | `4,800,000` | `1.35` | `81,920` options |
+| `filter_gradient.h` | `BASELINE_FILTER_GRADIENT` | `25,000,000` | `1.45` | height x width `1024 x 1024` |
+| `graph.h` | `BASELINE_GRAPH` | `5,000,000` | `2.50` | `1,024,000` nodes, average degree `8` |
+| `grff.h` | `BASELINE_GRFF` | `8,500,000` | `3.15` | feature size `1,024,000` |
+| `image_proc.h` | `BASELINE_IMAGE_PROC` | `43,000,000` | `1.73` | image size `1024 x 1000` |
+| `matmul.h` | `BASELINE_MATMUL` | `88,000,000` | `2.45` | matrix size `512 x 512` |
+| `relu.h` | `BASELINE_RELU` | `550,000` | `2.50` | vector length `1,024,000` |
+| `sparse_spmm.h` | `BASELINE_SPARSE_SPMM` | `116,000,000` | `1.40` | LHS (left hand side) CSR matrix of `2048 x 2048`, the default dense RHS (right hand side) is also `2048 x 2048` |
+| `trace_replay.h` | `BASELINE_TRACE_REPLAY` | `3,400,000` | `1.75` | `65,536` records and trace length `1,048,576` |
 
 ## What `bench.h` Is For
 
@@ -91,10 +123,24 @@ It provides:
 - `checkFunc`: the validator used after timing.
 - `args` and `ref_args`: the benchmark contexts passed to the student and reference wrappers.
 - `baseline_time`: the baseline runtime in `std::chrono::nanoseconds`.
+- `naive_speedup_lower_bound`: the reference lower bound used when comparing `stu_*` against the naive implementation.
 - `measure_time(...)`: helper for timing one benchmark run.
 - `flush_cache()`: touches a large buffer before each measurement to reduce cache-warm effects between runs.
 - `debug_log(...)`: prints debug messages only when `DEBUG` is enabled.
 - `calculate_speedup(...)` and `calculate_geometric_mean_speedup(...)`: helpers used by `run_all.cpp`.
+
+The most important speedup numbers now are:
+
+```math
+\text{speedup over naive} = \frac{t_{\mathrm{naive}}}{t_{\mathrm{stu}}}
+```
+
+```math
+\text{speedup over baseline} = \frac{t_{\mathrm{baseline}}}{t_{\mathrm{stu}}}
+```
+
+The final geometric mean reported by `run_all.cpp` is also based on these
+fixed baseline speedups, not on `naive / stu_*`.
 
 Important detail:
 
@@ -110,10 +156,11 @@ For example, when you want to measure a student version, the benchmark entry sho
  relu_check,
  &relu_args_student,
  &relu_args_reference,
- BASELINE_RELU}
+ BASELINE_RELU,
+ NAIVE_SPEEDUP_LOWER_BOUND_RELU}
 ```
 
-Right now, the starter `run_all.cpp` and `single_bench.cpp` mainly register `naive_*_wrapper` as placeholders. Students should switch `tfunc` to `stu_*_wrapper` when they want to benchmark their optimized code.
+Right now, some student benchmark entries in `run_all.cpp` are intentionally left as `TODO` comments because not every `stu_*` path may be available at the same time. Students can uncomment the corresponding block when that kernel is ready to benchmark.
 
 ## Build
 
@@ -224,7 +271,7 @@ This is useful for:
 
 This macro controls whether the program prints one overall performance summary at the end.
 
-- When `GEOMETRIC_MEAN` is `1`, `run_all` collects the runtime of every benchmark and prints the geometric mean speedup after all benchmarks finish.
+- When `GEOMETRIC_MEAN` is `1`, `run_all` collects the speedup over the fixed baseline for every benchmark and prints the geometric mean after all benchmarks finish.
 - When `GEOMETRIC_MEAN` is `0`, that overall summary is disabled.
 - If any benchmark fails correctness checking, the geometric mean is reported as `N/A`.
 
@@ -233,6 +280,31 @@ Why this matters:
 - The geometric mean is a better overall score than averaging raw runtimes or averaging speedup numbers directly.
 - It gives one single summary number for the whole benchmark suite.
 - For the assignment, `run_all` is the place to look when you want the overall performance result across all kernels, not just one kernel.
+
+### How the geometric mean is computed now
+
+For one kernel, the individual multiplier used by the geometric mean is:
+
+```math
+\frac{t_{\mathrm{baseline}}}{t_{\mathrm{stu}}}
+```
+
+If we write the baseline speedup of kernel $i$ as $s_i$, then:
+
+```math
+s_i = \frac{t_{\mathrm{baseline},i}}{t_{\mathrm{stu},i}}
+```
+
+and the final geometric mean over $n$ kernels is:
+
+```math
+\left(\prod_{i=1}^{n} s_i\right)^{1/n}
+```
+
+So the overall summary now uses the fixed `BASELINE_*` values defined in the
+header files. The lower-bound target $LB$ is still useful when comparing
+`naive / stu_*` for one kernel, but it is not part of the geometric-mean
+calculation.
 
 ## Profiling With `perf`
 
